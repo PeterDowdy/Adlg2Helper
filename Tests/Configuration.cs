@@ -15,7 +15,7 @@ namespace Tests
         }
         public static string Value(string key)
         {
-            return Config[key];
+            return System.Environment.GetEnvironmentVariable(key) ?? Config[key];
         }
     }
 }
