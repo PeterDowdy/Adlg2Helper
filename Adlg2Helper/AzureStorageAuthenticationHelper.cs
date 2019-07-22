@@ -57,7 +57,6 @@ namespace Adlg2Helper
             foreach (var item in values.AllKeys.OrderBy(k => k))
             {
                 sb.Append("\n").Append(item).Append(':').Append(values[item]);
-//                sb.Append("\n").Append(item).Append(':').Append(HttpUtility.UrlEncode(values[item]));
             }
             return sb.ToString();
         }

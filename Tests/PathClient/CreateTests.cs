@@ -10,7 +10,7 @@ namespace Tests.PathClient
         [OneTimeSetUp]
         public void Setup()
         {
-            _client = Adlg2ClientFactory.BuildPathClient("adlsg2clienttests", "R64aecLatzW8RO347vRqNBpwFkjTbUiiQmNmKXDpDe3NzLmo8n4uahtmcj4o+6W7VTZrgl6Q5l3SzB7U/R8QDA==");
+            _client = Adlg2ClientFactory.BuildPathClient(Configuration.Value("Account"),Configuration.Value("Key"));
             foreach (var path in _client.List(Container)) _client.Delete(Container, path.Name, true);
             _client.Create(Container, "existent_file", "file", false);
             _client.Create(Container, "existent_directory", "directory", false);
