@@ -13,6 +13,7 @@ namespace Tests.PathClient
         public void Setup()
         {
             _client = Adlg2ClientFactory.BuildPathClient(Configuration.Value("Account"),Configuration.Value("Key"));
+            Adlg2ClientFactory.BuildFilesystemClient(Configuration.Value("Account"), Configuration.Value("Key")).Create(Container);
             foreach (var path in _client.List(Container)) _client.Delete(Container, path.Name, true);
             _client.Create(Container, "small_read_file", "file", false);
             _client.Update(Container, "small_read_file", "append", Enumerable.Range(0,998).Select(x => (byte)(x % 255)).ToArray());

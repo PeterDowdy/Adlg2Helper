@@ -11,6 +11,7 @@ namespace Tests.PathClient
         public void Setup()
         {
             _client = Adlg2ClientFactory.BuildPathClient(Configuration.Value("Account"),Configuration.Value("Key"));
+            Adlg2ClientFactory.BuildFilesystemClient(Configuration.Value("Account"), Configuration.Value("Key")).Create(Container);
             foreach (var path in _client.List(Container)) _client.Delete(Container, path.Name, true);
             _client.Create(Container, "existent_file", "file", false);
             _client.Create(Container, "existent_directory", "directory", false);

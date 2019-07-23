@@ -35,7 +35,7 @@ namespace Adlg2Helper
             || fileName.Contains("--"))
             throw new ArgumentException("Filesystem name invalid; The value must start and end with a letter or number and must contain only letters, numbers, and the dash (-) character. Consecutive dashes are not permitted. All letters must be lowercase. The value must have between 3 and 63 characters..");
         }
-        public async Task<bool> Create(string filesystem)
+        public bool Create(string filesystem)
         {
             AssertValidity(filesystem);
             var parameters = new List<string>
@@ -60,7 +60,7 @@ namespace Adlg2Helper
                 }
             }
         }
-        public async Task<bool> Delete(string filesystem)
+        public bool Delete(string filesystem)
         {
             AssertValidity(filesystem);
             var parameters = new List<string>
@@ -86,7 +86,7 @@ namespace Adlg2Helper
                 }
             }
         }
-        public async Task<IEnumerable<AdlFilesystem>> List(bool recursive = false, string prefix = null, string continuation = null, int maxResults = 5000, int? timeout = null)
+        public IEnumerable<AdlFilesystem> List(bool recursive = false, string prefix = null, string continuation = null, int maxResults = 5000, int? timeout = null)
         {
             var retryPolicy = Policy.Handle<AdlOperationTimedOutException>().WaitAndRetry(5, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
             var parameters = new List<string>
@@ -121,7 +121,7 @@ namespace Adlg2Helper
                         if (!string.IsNullOrEmpty(continuationHeader))
                         {
                             continuation = continuationHeader;
-                            var continuedPaths = List(recursive, prefix, continuation, maxResults).GetAwaiter().GetResult();
+                            var continuedPaths = List(recursive, prefix, continuation, maxResults);
                             return result.Filesystems.Concat(continuedPaths);
                         }
 
@@ -130,7 +130,7 @@ namespace Adlg2Helper
                 }
             });
         }
-        public async Task<AdlFilesystemProperties> GetProperties(string filesystem)
+        public AdlFilesystemProperties GetProperties(string filesystem)
         {
             AssertValidity(filesystem);
             var parameters = new List<string>
@@ -144,7 +144,7 @@ namespace Adlg2Helper
                 httpRequestMessage.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
                 httpRequestMessage.Headers.Add("x-ms-version", _version);
                 httpRequestMessage.Headers.Authorization = AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account,_key,now,httpRequestMessage);
-                using (var response = await Http.Client.SendAsync(httpRequestMessage))
+                using (var response = Http.Client.SendAsync(httpRequestMessage).GetAwaiter().GetResult())
                 {
                     if (!response.IsSuccessStatusCode)
                     {
@@ -164,7 +164,7 @@ namespace Adlg2Helper
                 }
             }
         }
-        public async Task<bool> SetProperties(string filesystem, Dictionary<string,string> properties = null)
+        public bool SetProperties(string filesystem, Dictionary<string,string> properties = null)
         {
             AssertValidity(filesystem);
             var parameters = new List<string>
@@ -179,7 +179,7 @@ namespace Adlg2Helper
                 httpRequestMessage.Headers.Add("x-ms-version", _version);
                 if (properties?.Any() ?? false) httpRequestMessage.Headers.Add("x-ms-properties", string.Join(",", properties.Select(kvp => $"{kvp.Key}={Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(kvp.Value))}")));
                 httpRequestMessage.Headers.Authorization = AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, httpRequestMessage);
-                using (var response = await Http.Client.SendAsync(httpRequestMessage))
+                using (var response = Http.Client.SendAsync(httpRequestMessage).GetAwaiter().GetResult())
                 {
                     if (!response.IsSuccessStatusCode)
                     {

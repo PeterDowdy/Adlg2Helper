@@ -316,7 +316,7 @@ namespace Adlg2Helper
             });
         }
 
-        public async Task<AdlPathProperties> GetProperties(string filesystem, string path, string action = null, string upn = null)
+        public AdlPathProperties GetProperties(string filesystem, string path, string action = null, string upn = null)
         {
             var parameters = new List<string>();
             if (!string.IsNullOrEmpty(action)) parameters.Add($"action={action}");

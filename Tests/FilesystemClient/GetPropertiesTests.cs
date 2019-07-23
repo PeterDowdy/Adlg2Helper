@@ -12,20 +12,20 @@ namespace Tests.FilesystemClient
         public async Task Setup()
         {
             _client = Adlg2ClientFactory.BuildFilesystemClient(Configuration.Value("Account"),Configuration.Value("Key"));
-            await _client.Create("get-blank-properties");
+            _client.Create("get-blank-properties");
         }
 
         [Test]
         public async Task get_blank_properties()
         {
-            var properties = await _client.GetProperties("get-blank-properties");
+            var properties = _client.GetProperties("get-blank-properties");
             Assert.IsTrue(string.IsNullOrEmpty(properties.Properties));
         }
 
         [OneTimeTearDown]
         public async Task Teardown()
         {
-            await _client.Delete("get-blank-properties");
+            _client.Delete("get-blank-properties");
         }
     }
 }

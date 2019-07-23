@@ -13,25 +13,25 @@ namespace Tests.FilesystemClient
         {
             _client = Adlg2ClientFactory.BuildFilesystemClient(Configuration.Value("Account"),
                 Configuration.Value("Key"));
-            await _client.Create("filesystem-to-delete-that-already-exists");
+            _client.Create("filesystem-to-delete-that-already-exists");
         }
 
         [Test]
         public async Task delete_a_filesystem()
         {
-            Assert.IsTrue(await _client.Delete("filesystem-to-delete-that-already-exists"));
+            Assert.IsTrue(_client.Delete("filesystem-to-delete-that-already-exists"));
         }
 
         [Test]
         public async Task delete_a_filesystem_that_doesnt_exist()
         {
-            Assert.IsFalse(await _client.Delete("filesystem-to-delete-that-doesnt-exist"));
+            Assert.IsFalse(_client.Delete("filesystem-to-delete-that-doesnt-exist"));
         }
 
         [OneTimeTearDown]
         public async Task Teardown()
         {
-            await _client.Delete("filesystem-to-delete-that-already-exists");
+            _client.Delete("filesystem-to-delete-that-already-exists");
         }
     }
 }

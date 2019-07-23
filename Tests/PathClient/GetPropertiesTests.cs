@@ -12,14 +12,15 @@ namespace Tests.PathClient
         public void Setup()
         {
             _client = Adlg2ClientFactory.BuildPathClient(Configuration.Value("Account"),Configuration.Value("Key"));
+            Adlg2ClientFactory.BuildFilesystemClient(Configuration.Value("Account"), Configuration.Value("Key")).Create(Container);
             foreach (var path in _client.List(Container)) _client.Delete(Container, path.Name, true);
             _client.Create(Container, "get_properties", "file", false);
         }
 
         [Test]
-        public async Task get_properties()
+        public void get_properties()
         {
-            var properties = await _client.GetProperties(Container, "get_properties");
+            var properties = _client.GetProperties(Container, "get_properties");
             Assert.AreEqual(properties.Owner, $"$superuser");
         }
 
