@@ -12,7 +12,7 @@ namespace Tests.FilesystemClient
     {
         private Adlg2FilesystemClient _client;
         [OneTimeSetUp]
-        public async Task Setup()
+        public void Setup()
         {
             _client = Adlg2ClientFactory.BuildFilesystemClient(Configuration.Value("Account"),Configuration.Value("Key"));
             _client.Create("set-blank-properties");
@@ -27,13 +27,13 @@ namespace Tests.FilesystemClient
         }
 
         [Test]
-        public async Task set_blank_properties()
+        public void set_blank_properties()
         {
             Assert.IsTrue(_client.SetProperties("set-blank-properties"));
         }
 
         [Test]
-        public async Task set_non_blank_properties()
+        public void set_non_blank_properties()
         {
             Assert.IsTrue(_client.SetProperties("set-non-blank-properties", new Dictionary<string, string>
             {
@@ -44,7 +44,7 @@ namespace Tests.FilesystemClient
         }
 
         [Test]
-        public async Task overwrite_properties()
+        public void overwrite_properties()
         {
             Assert.IsTrue(_client.SetProperties("set-overwrite-properties", new Dictionary<string, string>
             {
@@ -61,7 +61,7 @@ namespace Tests.FilesystemClient
         }
 
         [OneTimeTearDown]
-        public async Task Teardown()
+        public void Teardown()
         {
             _client.Delete("set-blank-properties");
             _client.Delete("set-non-blank-properties");

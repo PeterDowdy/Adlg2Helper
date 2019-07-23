@@ -9,21 +9,21 @@ namespace Tests.FilesystemClient
     {
         private Adlg2FilesystemClient _client;
         [OneTimeSetUp]
-        public async Task Setup()
+        public void Setup()
         {
             _client = Adlg2ClientFactory.BuildFilesystemClient(Configuration.Value("Account"),Configuration.Value("Key"));
             _client.Create("get-blank-properties");
         }
 
         [Test]
-        public async Task get_blank_properties()
+        public void get_blank_properties()
         {
             var properties = _client.GetProperties("get-blank-properties");
             Assert.IsTrue(string.IsNullOrEmpty(properties.Properties));
         }
 
         [OneTimeTearDown]
-        public async Task Teardown()
+        public void Teardown()
         {
             _client.Delete("get-blank-properties");
         }

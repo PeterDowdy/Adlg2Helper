@@ -10,7 +10,7 @@ namespace Tests.FilesystemClient
         private Adlg2FilesystemClient _client;
 
         [OneTimeSetUp]
-        public async Task Setup()
+        public void Setup()
         {
             _client = Adlg2ClientFactory.BuildFilesystemClient(Configuration.Value("Account"),
                 Configuration.Value("Key"));
@@ -19,13 +19,13 @@ namespace Tests.FilesystemClient
         }
 
         [Test]
-        public async Task list_filesystems()
+        public void list_filesystems()
         {
             Assert.IsTrue((_client.List()).Count(x => x.Name == "filesystem-to-list") == 1);
         }
 
         [Test]
-        public async Task list_filesystems_with_prefix()
+        public void list_filesystems_with_prefix()
         {
             var fileSystems = _client.List(prefix: "prefix");
             Assert.IsTrue(fileSystems.Count(x => x.Name == "filesystem-to-list") == 0);
@@ -34,7 +34,7 @@ namespace Tests.FilesystemClient
 
 
         [OneTimeTearDown]
-        public async Task Teardown()
+        public void Teardown()
         {
             _client.Delete("filesystem-to-list");
             _client.Delete("prefix-filesystem-to-list");
