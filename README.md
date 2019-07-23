@@ -1,5 +1,6 @@
 # Azure DataLake Gen2 Helper
-[![Build status](https://dev.azure.com/peterdowdy/Adlg2Helper/_apis/build/status/Adlg2Helper%20master%20build)](https://dev.azure.com/peterdowdy/Adlg2Helper/_build/latest?definitionId=-1)
+[![Build status](https://dev.azure.com/peterdowdy/Adlg2Helper/_apis/build/status/Adlg2Helper%20master%20build)](https://dev.azure.com/peterdowdy/Adlg2Helper/_build/latest?definitionId=1)
+
 This is a library wrapping calls to Azure DataLake Gen2's REST API (docs [here](https://docs.microsoft.com/en-us/rest/api/storageservices/data-lake-storage-gen2)).
 
 This first release is just a helper that makes it easier to make correct calls to the API. Later releases will provide helpers to assist with more complex tasks, such as automatically segmenting and uploading large files.
