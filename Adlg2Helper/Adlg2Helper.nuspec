@@ -1,15 +1,15 @@
 <?xml version="1.0"?>
 <package >
   <metadata>
-    <id>79653D76-B4A6-4680-B53F-8D7B4740A6FD</id>
-    <version>0.1.0</version>
-    <title>Adlg2Helper</title>
-    <authors>Peter Dowdy</authors>
-    <owners>Peter Dowdy</owners>
+    <id>$id$</id>
+    <version>$version$</version>
+    <title>$title$</title>
+    <authors>$author$</authors>
+    <owners>$author$</owners>
     <licenseUrl>https://opensource.org/licenses/MIT</licenseUrl>
     <projectUrl>https://www.github.com/PeterDowdy/adlg2helper</projectUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <description>A helper for the Azure DataLake gen2 REST API</description>
+    <description>$description$</description>
     <releaseNotes>Summary of changes made in this release of the package.</releaseNotes>
     <copyright>Copyright 2019</copyright>
     <tags>Azure DataLake gen2</tags>
