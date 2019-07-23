@@ -1,5 +1,5 @@
 # Azure DataLake Gen2 Helper
-[![Build status](https://dev.azure.com/peterdowdy/Adlg2Helper/_apis/build/status/Adlg2Helper%20Release)
+![Build status](https://dev.azure.com/peterdowdy/Adlg2Helper/_apis/build/status/Adlg2Helper%20Release)
 
 This is a library wrapping calls to Azure DataLake Gen2's REST API (docs [here](https://docs.microsoft.com/en-us/rest/api/storageservices/data-lake-storage-gen2)).
 
