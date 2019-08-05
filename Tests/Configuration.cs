@@ -10,6 +10,7 @@ namespace Tests
         {
             Config = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json", optional: true)
+                .AddJsonFile("local.settings.json", optional: true)
                 .AddEnvironmentVariables()
                 .Build();
         }

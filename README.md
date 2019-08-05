@@ -8,7 +8,7 @@ This first release is just a helper that makes it easier to make correct calls t
 This library depends on Newtonsoft.Json becuase all libraries do, and on Polly to provide retry semantics.
 
 ## Getting started
-This release only supports shared key authentication. Later release will support authentication via service principal. Install in your application like this:
+This release supports shared key authentication or oauth.. Install in your application like this:
 ```
 var host = new HostBuilder()
     .ConfigureServices(svc =>
@@ -16,6 +16,8 @@ var host = new HostBuilder()
             svc.AddAzureDataLakeGen2Client(options =>
             {
                 options.AuthorizeWithAccountNameAndKey("account name", "shared key");
+                // or //
+                options.AuthorizeWithAccountNameAndAzureOauth("account name", "tenant id", "client id", "client secret");
             });
         })
     .Build();
@@ -27,7 +29,12 @@ var filesystemClient = services.GetRequiredService<Adlg2FilesystemClient>();
 Or create it directly using the factory:
 ```
 var pathClient = Adlg2ClientFactory.BuildPathClient("account name", "shared key");
+// or //
+var pathClient = Adlg2ClientFactory.BuildPathClient("account name", "tenant id", "client id", "client secret");
+
 var filesystemClient = Adlg2ClientFactory.BuildFilesystemClient("account name", "shared key");
+// or //
+var filesystemClient = Adlg2ClientFactory.BuildFilesystemClient("account name", "tenant id", "client id", "client secret");
 ```
 
 ### Path client
@@ -37,7 +44,7 @@ The path client wraps the [path API](https://docs.microsoft.com/en-us/rest/api/s
 The filesystem client wraps the [filesystem API](https://docs.microsoft.com/en-us/rest/api/storageservices/datalakestoragegen2/filesystem).
 
 #### Finally
-Let me know if this was useful for you or if you have suggestions or feature requests. The current roadmap is:
-* Add service principal support.
+Let me know if this was useful for you or if you have suggestions or feature requests (issues welcome). The current roadmap is:
+* Add SAS support.
 * Allow configuration of retry policies.
 * Create helpers to segment upload and download of large files. 

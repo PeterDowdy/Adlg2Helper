@@ -5,10 +5,12 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 using Newtonsoft.Json;
 using Polly;
+using Polly.Retry;
 
 namespace Adlg2Helper
 {
@@ -17,11 +19,33 @@ namespace Adlg2Helper
         private readonly string _version = "2018-11-09";
         private readonly string _account;
         private readonly string _key;
-
-        internal Adlg2FilesystemClient(string account, string key)
+        private readonly HttpClient _httpClient;
+        private readonly string _clientId;
+        private readonly string _clientSecret;
+        private readonly string _tenantId;
+        private readonly AuthorizationMethod _authorizationMethod;
+        private readonly RetryPolicy _retryPolicy = Policy.Handle<AdlOperationTimedOutException>()
+            .Or<AuthTokenInvalidException>()
+            .Retry(5, (exception, retryCount, context) =>
+            {
+                if (exception is AuthTokenInvalidException) AzureStorageAuthenticationHelper.ClearToken();
+                else Thread.Sleep(TimeSpan.FromSeconds(Math.Pow(2, retryCount)));
+            });
+        internal Adlg2FilesystemClient(string account, string key, HttpClient httpClient = null)
         {
             _account = account;
             _key = key;
+            _httpClient = httpClient ?? Http.Client;
+            _authorizationMethod = AuthorizationMethod.SharedKey;
+        }
+        internal Adlg2FilesystemClient(string account, string tenantId, string clientId, string clientSecret, HttpClient httpClient = null)
+        {
+            _account = account;
+            _clientId = clientId;
+            _clientSecret = clientSecret;
+            _httpClient = httpClient ?? Http.Client;
+            _tenantId = tenantId;
+            _authorizationMethod = AuthorizationMethod.Oauth;
         }
 
         private void AssertValidity(string fileName)
@@ -42,23 +66,35 @@ namespace Adlg2Helper
             {
                 $"resource=filesystem".ToLowerInvariant()
             };
-            using (var httpRequestMessage = new HttpRequestMessage(HttpMethod.Put,
-                $"https://{_account}.dfs.core.windows.net/{filesystem}?{string.Join("&", parameters)}"))
+            return _retryPolicy.Execute(() =>
             {
-                DateTime now = DateTime.UtcNow;
-                httpRequestMessage.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
-                httpRequestMessage.Headers.Add("x-ms-version", _version);
-                httpRequestMessage.Headers.Authorization = AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, httpRequestMessage);
-                using (HttpResponseMessage httpResponseMessage = Http.Client.SendAsync(httpRequestMessage).GetAwaiter().GetResult())
+                using (var httpRequestMessage = new HttpRequestMessage(HttpMethod.Put,
+                    $"https://{_account}.dfs.core.windows.net/{filesystem}?{string.Join("&", parameters)}"))
                 {
-                    if (!httpResponseMessage.IsSuccessStatusCode)
+                    DateTime now = DateTime.UtcNow;
+                    httpRequestMessage.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
+                    httpRequestMessage.Headers.Add("x-ms-version", _version);
+                    httpRequestMessage.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey
+                        ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now,
+                            httpRequestMessage)
+                        : AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId,
+                            _clientSecret);
+                    using (HttpResponseMessage response =
+                        _httpClient.SendAsync(httpRequestMessage).GetAwaiter().GetResult())
                     {
-                        if (httpResponseMessage.StatusCode == HttpStatusCode.Conflict) return false;
-                        throw new Exception(httpResponseMessage.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+                        if (!response.IsSuccessStatusCode)
+                        {
+                            if (response.StatusCode == HttpStatusCode.Conflict) return false;
+                            if (response.StatusCode == HttpStatusCode.Unauthorized &&
+                                _authorizationMethod == AuthorizationMethod.Oauth)
+                                throw new AuthTokenInvalidException();
+                            throw new Exception(response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+                        }
+
+                        return response.StatusCode == HttpStatusCode.Created;
                     }
-                    return httpResponseMessage.StatusCode == HttpStatusCode.Created;
                 }
-            }
+            });
         }
         public bool Delete(string filesystem)
         {
@@ -67,28 +103,39 @@ namespace Adlg2Helper
             {
                 $"resource=filesystem".ToLowerInvariant()
             };
-            using (var httpRequestMessage = new HttpRequestMessage(HttpMethod.Delete,
-                $"https://{_account}.dfs.core.windows.net/{filesystem}?{string.Join("&", parameters)}"))
+            return _retryPolicy.Execute(() =>
             {
-                DateTime now = DateTime.UtcNow;
-                httpRequestMessage.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
-                httpRequestMessage.Headers.Add("x-ms-version", _version);
-                httpRequestMessage.Headers.Authorization = AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, httpRequestMessage);
-                using (HttpResponseMessage httpResponseMessage = Http.Client.SendAsync(httpRequestMessage).GetAwaiter().GetResult())
+                using (var httpRequestMessage = new HttpRequestMessage(HttpMethod.Delete,
+                    $"https://{_account}.dfs.core.windows.net/{filesystem}?{string.Join("&", parameters)}"))
                 {
-                    if (!httpResponseMessage.IsSuccessStatusCode)
+                    DateTime now = DateTime.UtcNow;
+                    httpRequestMessage.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
+                    httpRequestMessage.Headers.Add("x-ms-version", _version);
+                    httpRequestMessage.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey
+                        ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now,
+                            httpRequestMessage)
+                        : AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId,
+                            _clientSecret);
+                    using (HttpResponseMessage response =
+                        _httpClient.SendAsync(httpRequestMessage).GetAwaiter().GetResult())
                     {
-                        if (httpResponseMessage.StatusCode == HttpStatusCode.Conflict) return false;
-                        if (httpResponseMessage.StatusCode == HttpStatusCode.NotFound) return false;
-                        throw new Exception(httpResponseMessage.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+                        if (!response.IsSuccessStatusCode)
+                        {
+                            if (response.StatusCode == HttpStatusCode.Conflict) return false;
+                            if (response.StatusCode == HttpStatusCode.NotFound) return false;
+                            if (response.StatusCode == HttpStatusCode.Unauthorized &&
+                                _authorizationMethod == AuthorizationMethod.Oauth)
+                                throw new AuthTokenInvalidException();
+                            throw new Exception(response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+                        }
+
+                        return response.StatusCode == HttpStatusCode.Accepted;
                     }
-                    return httpResponseMessage.StatusCode == HttpStatusCode.Accepted;
                 }
-            }
+            });
         }
         public IEnumerable<AdlFilesystem> List(bool recursive = false, string prefix = null, string continuation = null, int maxResults = 5000, int? timeout = null)
         {
-            var retryPolicy = Policy.Handle<AdlOperationTimedOutException>().WaitAndRetry(5, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
             var parameters = new List<string>
             {
                 $"recursive={recursive}".ToLowerInvariant(),
@@ -98,14 +145,16 @@ namespace Adlg2Helper
             if (!string.IsNullOrEmpty(prefix)) parameters.Add($"prefix={HttpUtility.UrlEncode(prefix)}");
             if (!string.IsNullOrEmpty(continuation)) parameters.Add($"continuation={HttpUtility.UrlEncode(continuation)}");
             if (timeout.HasValue) parameters.Add($"timeout={timeout}");
-            return retryPolicy.Execute(() => {
+            return _retryPolicy.Execute(() => {
                 using (var request = new HttpRequestMessage(HttpMethod.Get, $"https://{_account}.dfs.core.windows.net/?{string.Join("&", parameters)}"))
                 {
                     DateTime now = DateTime.UtcNow;
                     request.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
                     request.Headers.Add("x-ms-version", _version);
-                    request.Headers.Authorization = AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, request);
-                    using (var response = Http.Client.SendAsync(request).GetAwaiter().GetResult())
+                    request.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey
+                        ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, request)
+                        : AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId, _clientSecret);
+                    using (var response = _httpClient.SendAsync(request).GetAwaiter().GetResult())
                     {
                         if (!response.IsSuccessStatusCode)
                         {
@@ -114,6 +163,7 @@ namespace Adlg2Helper
                                     .ReadAsStringAsync().GetAwaiter().GetResult()
                                     .Contains("Operation could not be completed within the specified time."))
                                 throw new AdlOperationTimedOutException();
+                            if (response.StatusCode == HttpStatusCode.Unauthorized && _authorizationMethod == AuthorizationMethod.Oauth) throw new AuthTokenInvalidException();
                             throw new AdlUnexpectedException(response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
                         }
                         var result = JsonConvert.DeserializeObject<AdlFilesystemList>(response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
@@ -137,32 +187,41 @@ namespace Adlg2Helper
             {
                 $"resource=filesystem"
             };
-
-            using (var httpRequestMessage = new HttpRequestMessage(HttpMethod.Head, $"https://{_account}.dfs.core.windows.net/{filesystem}?{string.Join("&", parameters)}"))
+            return _retryPolicy.Execute(() =>
             {
-                DateTime now = DateTime.UtcNow;
-                httpRequestMessage.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
-                httpRequestMessage.Headers.Add("x-ms-version", _version);
-                httpRequestMessage.Headers.Authorization = AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account,_key,now,httpRequestMessage);
-                using (var response = Http.Client.SendAsync(httpRequestMessage).GetAwaiter().GetResult())
+                using (var httpRequestMessage = new HttpRequestMessage(HttpMethod.Head,
+                    $"https://{_account}.dfs.core.windows.net/{filesystem}?{string.Join("&", parameters)}"))
                 {
-                    if (!response.IsSuccessStatusCode)
+                    DateTime now = DateTime.UtcNow;
+                    httpRequestMessage.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
+                    httpRequestMessage.Headers.Add("x-ms-version", _version);
+                    httpRequestMessage.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey
+                        ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now,
+                            httpRequestMessage)
+                        : AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId,
+                            _clientSecret);
+                    using (var response = _httpClient.SendAsync(httpRequestMessage).GetAwaiter().GetResult())
                     {
-                        if (response.StatusCode == HttpStatusCode.InternalServerError && response.Content
-                                .ReadAsStringAsync().GetAwaiter().GetResult()
-                                .Contains("Operation could not be completed within the specified time."))
-                            throw new AdlOperationTimedOutException();
-                        if (response.StatusCode == HttpStatusCode.NotFound) return null;
-                        throw new Exception(response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
-                    }
+                        if (!response.IsSuccessStatusCode)
+                        {
+                            if (response.StatusCode == HttpStatusCode.InternalServerError && response.Content
+                                    .ReadAsStringAsync().GetAwaiter().GetResult()
+                                    .Contains("Operation could not be completed within the specified time."))
+                                throw new AdlOperationTimedOutException();
+                            if (response.StatusCode == HttpStatusCode.NotFound) return null;
+                            throw new Exception(response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+                        }
 
-                    return new AdlFilesystemProperties
-                    {
-                        NamespaceEnabled = response.Headers.SingleOrDefault(h => h.Key == "x-ms-namespace-enabled").Value?.FirstOrDefault(),
-                        Properties = response.Headers.SingleOrDefault(h => h.Key == "x-ms-properties").Value?.FirstOrDefault()
-                    };
+                        return new AdlFilesystemProperties
+                        {
+                            NamespaceEnabled = response.Headers.SingleOrDefault(h => h.Key == "x-ms-namespace-enabled")
+                                .Value?.FirstOrDefault(),
+                            Properties = response.Headers.SingleOrDefault(h => h.Key == "x-ms-properties").Value
+                                ?.FirstOrDefault()
+                        };
+                    }
                 }
-            }
+            });
         }
         public bool SetProperties(string filesystem, Dictionary<string,string> properties = null)
         {
@@ -171,28 +230,39 @@ namespace Adlg2Helper
             {
                 $"resource=filesystem"
             };
-
-            using (var httpRequestMessage = new HttpRequestMessage(HttpMethod.Patch, $"https://{_account}.dfs.core.windows.net/{filesystem}?{string.Join("&", parameters)}"))
+            return _retryPolicy.Execute(() =>
             {
-                DateTime now = DateTime.UtcNow;
-                httpRequestMessage.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
-                httpRequestMessage.Headers.Add("x-ms-version", _version);
-                if (properties?.Any() ?? false) httpRequestMessage.Headers.Add("x-ms-properties", string.Join(",", properties.Select(kvp => $"{kvp.Key}={Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(kvp.Value))}")));
-                httpRequestMessage.Headers.Authorization = AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, httpRequestMessage);
-                using (var response = Http.Client.SendAsync(httpRequestMessage).GetAwaiter().GetResult())
+                using (var httpRequestMessage = new HttpRequestMessage(HttpMethod.Patch,
+                    $"https://{_account}.dfs.core.windows.net/{filesystem}?{string.Join("&", parameters)}"))
                 {
-                    if (!response.IsSuccessStatusCode)
+                    DateTime now = DateTime.UtcNow;
+                    httpRequestMessage.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
+                    httpRequestMessage.Headers.Add("x-ms-version", _version);
+                    if (properties?.Any() ?? false)
+                        httpRequestMessage.Headers.Add("x-ms-properties",
+                            string.Join(",",
+                                properties.Select(kvp =>
+                                    $"{kvp.Key}={Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(kvp.Value))}")));
+                    httpRequestMessage.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey
+                        ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now,
+                            httpRequestMessage)
+                        : AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId,
+                            _clientSecret);
+                    using (var response = _httpClient.SendAsync(httpRequestMessage).GetAwaiter().GetResult())
                     {
-                        if (response.StatusCode == HttpStatusCode.InternalServerError && response.Content
-                                .ReadAsStringAsync().GetAwaiter().GetResult()
-                                .Contains("Operation could not be completed within the specified time."))
-                            throw new AdlOperationTimedOutException();
-                        return false;
-                    }
+                        if (!response.IsSuccessStatusCode)
+                        {
+                            if (response.StatusCode == HttpStatusCode.InternalServerError && response.Content
+                                    .ReadAsStringAsync().GetAwaiter().GetResult()
+                                    .Contains("Operation could not be completed within the specified time."))
+                                throw new AdlOperationTimedOutException();
+                            return false;
+                        }
 
-                    return true;
+                        return true;
+                    }
                 }
-            }
+            });
         }
     }
 

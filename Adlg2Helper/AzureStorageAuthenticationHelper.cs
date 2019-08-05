@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Net.Http;
@@ -6,11 +7,13 @@ using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Web;
+using Newtonsoft.Json.Linq;
 
 namespace Adlg2Helper
 {
     internal static class AzureStorageAuthenticationHelper
     {
+        private static Guid _state = Guid.NewGuid();
         internal static AuthenticationHeaderValue BuildSignedAuthorizationHeader(
             string storageAccountName,
             string storageAccountKey,
@@ -59,6 +62,32 @@ namespace Adlg2Helper
                 sb.Append("\n").Append(item).Append(':').Append(values[item]);
             }
             return sb.ToString();
+        }
+
+        private static string _token;
+        private static DateTime _expires;
+        internal static AuthenticationHeaderValue BuildBearerTokenHeader(HttpClient httpClient, string tenantId, string clientId, string clientSecret)
+        {
+            if (!string.IsNullOrEmpty(_token) && _expires > DateTime.UtcNow) return new AuthenticationHeaderValue("Bearer",_token);
+            var response = JObject.Parse(
+                httpClient.PostAsync($"https://login.microsoftonline.com/{tenantId}/oauth2/token",
+                        new FormUrlEncodedContent(new KeyValuePair<string, string>[]
+                        {
+                            new KeyValuePair<string, string>("grant_type", "client_credentials"),
+                            new KeyValuePair<string, string>("client_id", clientId),
+                            new KeyValuePair<string, string>("client_secret", clientSecret),
+                            new KeyValuePair<string, string>("resource", $"https://storage.azure.com"),
+                        })).GetAwaiter().GetResult()
+                    .Content.ReadAsStringAsync().GetAwaiter().GetResult()
+            );
+            _token = response.GetValue("access_token", StringComparison.InvariantCultureIgnoreCase).Value<string>();
+            _expires = new DateTime(response.GetValue("expires_on").Value<long>());
+            return new AuthenticationHeaderValue("Bearer", _token);
+        }
+
+        internal static void ClearToken()
+        {
+            _token = null;
         }
     }
 }
