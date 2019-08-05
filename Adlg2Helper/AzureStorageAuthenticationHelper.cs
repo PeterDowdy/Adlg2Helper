@@ -84,5 +84,10 @@ namespace Adlg2Helper
             _expires = new DateTime(response.GetValue("expires_on").Value<long>());
             return new AuthenticationHeaderValue("Bearer", _token);
         }
+
+        internal static void ClearToken()
+        {
+            _token = null;
+        }
     }
 }
