@@ -17,11 +17,26 @@ namespace Adlg2Helper
         private readonly string _version = "2018-11-09";
         private readonly string _account;
         private readonly string _key;
-
-        internal Adlg2FilesystemClient(string account, string key)
+        private readonly HttpClient _httpClient;
+        private readonly string _clientId;
+        private readonly string _clientSecret;
+        private readonly string _tenantId;
+        private readonly AuthorizationMethod _authorizationMethod;
+        internal Adlg2FilesystemClient(string account, string key, HttpClient httpClient = null)
         {
             _account = account;
             _key = key;
+            _httpClient = httpClient ?? Http.Client;
+            _authorizationMethod = AuthorizationMethod.SharedKey;
+        }
+        internal Adlg2FilesystemClient(string account, string tenantId, string clientId, string clientSecret, HttpClient httpClient = null)
+        {
+            _account = account;
+            _clientId = clientId;
+            _clientSecret = clientSecret;
+            _httpClient = httpClient ?? Http.Client;
+            _tenantId = tenantId;
+            _authorizationMethod = AuthorizationMethod.Oauth;
         }
 
         private void AssertValidity(string fileName)
@@ -48,8 +63,10 @@ namespace Adlg2Helper
                 DateTime now = DateTime.UtcNow;
                 httpRequestMessage.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
                 httpRequestMessage.Headers.Add("x-ms-version", _version);
-                httpRequestMessage.Headers.Authorization = AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, httpRequestMessage);
-                using (HttpResponseMessage httpResponseMessage = Http.Client.SendAsync(httpRequestMessage).GetAwaiter().GetResult())
+                httpRequestMessage.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey
+                    ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, httpRequestMessage)
+                    : AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId, _clientSecret);
+                using (HttpResponseMessage httpResponseMessage = _httpClient.SendAsync(httpRequestMessage).GetAwaiter().GetResult())
                 {
                     if (!httpResponseMessage.IsSuccessStatusCode)
                     {
@@ -73,8 +90,10 @@ namespace Adlg2Helper
                 DateTime now = DateTime.UtcNow;
                 httpRequestMessage.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
                 httpRequestMessage.Headers.Add("x-ms-version", _version);
-                httpRequestMessage.Headers.Authorization = AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, httpRequestMessage);
-                using (HttpResponseMessage httpResponseMessage = Http.Client.SendAsync(httpRequestMessage).GetAwaiter().GetResult())
+                httpRequestMessage.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey
+                    ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, httpRequestMessage)
+                    : AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId, _clientSecret);
+                using (HttpResponseMessage httpResponseMessage = _httpClient.SendAsync(httpRequestMessage).GetAwaiter().GetResult())
                 {
                     if (!httpResponseMessage.IsSuccessStatusCode)
                     {
@@ -104,8 +123,10 @@ namespace Adlg2Helper
                     DateTime now = DateTime.UtcNow;
                     request.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
                     request.Headers.Add("x-ms-version", _version);
-                    request.Headers.Authorization = AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, request);
-                    using (var response = Http.Client.SendAsync(request).GetAwaiter().GetResult())
+                    request.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey
+                        ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, request)
+                        : AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId, _clientSecret);
+                    using (var response = _httpClient.SendAsync(request).GetAwaiter().GetResult())
                     {
                         if (!response.IsSuccessStatusCode)
                         {
@@ -143,8 +164,10 @@ namespace Adlg2Helper
                 DateTime now = DateTime.UtcNow;
                 httpRequestMessage.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
                 httpRequestMessage.Headers.Add("x-ms-version", _version);
-                httpRequestMessage.Headers.Authorization = AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account,_key,now,httpRequestMessage);
-                using (var response = Http.Client.SendAsync(httpRequestMessage).GetAwaiter().GetResult())
+                httpRequestMessage.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey
+                    ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account,_key,now,httpRequestMessage)
+                    : AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId, _clientSecret);
+                using (var response = _httpClient.SendAsync(httpRequestMessage).GetAwaiter().GetResult())
                 {
                     if (!response.IsSuccessStatusCode)
                     {
@@ -178,8 +201,10 @@ namespace Adlg2Helper
                 httpRequestMessage.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
                 httpRequestMessage.Headers.Add("x-ms-version", _version);
                 if (properties?.Any() ?? false) httpRequestMessage.Headers.Add("x-ms-properties", string.Join(",", properties.Select(kvp => $"{kvp.Key}={Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(kvp.Value))}")));
-                httpRequestMessage.Headers.Authorization = AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, httpRequestMessage);
-                using (var response = Http.Client.SendAsync(httpRequestMessage).GetAwaiter().GetResult())
+                httpRequestMessage.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey
+                    ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, httpRequestMessage)
+                    : AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId, _clientSecret);
+                using (var response = _httpClient.SendAsync(httpRequestMessage).GetAwaiter().GetResult())
                 {
                     if (!response.IsSuccessStatusCode)
                     {
