@@ -18,6 +18,8 @@ var host = new HostBuilder()
                 options.AuthorizeWithAccountNameAndKey("account name", "shared key");
                 // or //
                 options.AuthorizeWithAccountNameAndAzureOauth("account name", "tenant id", "client id", "client secret");
+				// or //
+				options.AuthorizeWithSharedAccessSignature("account name", "shared access signature");
             });
         })
     .Build();
@@ -45,6 +47,6 @@ The filesystem client wraps the [filesystem API](https://docs.microsoft.com/en-u
 
 #### Finally
 Let me know if this was useful for you or if you have suggestions or feature requests (issues welcome). The current roadmap is:
-* Add SAS support.
 * Allow configuration of retry policies.
 * Create helpers to segment upload and download of large files. 
+* Clean up some of the tech debt in the 0.X release and get ready for a 1.0

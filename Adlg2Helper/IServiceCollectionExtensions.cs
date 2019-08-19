@@ -27,14 +27,14 @@ namespace Adlg2Helper
                 return options.AuthorizationMethod == AuthorizationMethod.SharedKey ? Adlg2ClientFactory.BuildPathClient(options.Account, options.Key)
                     : options.AuthorizationMethod == AuthorizationMethod.Oauth ? Adlg2ClientFactory.BuildPathClient(options.Account, options.TenantId, options.ClientId, options.ClientSecret)
                     : options.AuthorizationMethod == AuthorizationMethod.SharedAccessSignature ? Adlg2ClientFactory.BuildPathClientWithSharedAccessSignature(options.Account,options.Sas)
-                        : throw new Exception("Authorization method has not been specified. Please use `.AuthorizeWithAccountNameAndKey` or `AuthorizeWithAccountNameAndAzureOauth`.");
+                        : throw new Exception("Authorization method has not been specified. Please use `.AuthorizeWithAccountNameAndKey`, `.AuthorizeWithAccountNameAndAzureOauth`, or `.AuthorizeWithSharedAccessSignature`.");
             });
             services.AddTransient<Adlg2FilesystemClient>(x =>
             {
                 return options.AuthorizationMethod == AuthorizationMethod.SharedKey ? Adlg2ClientFactory.BuildFilesystemClient(options.Account, options.Key) :
                     options.AuthorizationMethod == AuthorizationMethod.Oauth ? Adlg2ClientFactory.BuildFilesystemClient(options.Account, options.TenantId, options.ClientId, options.ClientSecret)
                     : options.AuthorizationMethod == AuthorizationMethod.SharedAccessSignature ? Adlg2ClientFactory.BuildFilesystemClientWithSharedAccessSignature(options.Account, options.Sas)
-                        : throw new Exception("Authorization method has not been specified. Please use `.AuthorizeWithAccountNameAndKey` or `AuthorizeWithAccountNameAndAzureOauth`.");
+                        : throw new Exception("Authorization method has not been specified. Please use `.AuthorizeWithAccountNameAndKey`, `.AuthorizeWithAccountNameAndAzureOauth`, or `.AuthorizeWithSharedAccessSignature`.");
             });
             services.AddHttpClient();
             return services;
