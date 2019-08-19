@@ -14,6 +14,9 @@
     <FileVersion>0.0.1.0</FileVersion>
     <Copyright>2019</Copyright>
     <PackageReleaseNotes></PackageReleaseNotes>
+    <SignAssembly>true</SignAssembly>
+    <DelaySign>false</DelaySign>
+    <AssemblyOriginatorKeyFile>Adlg2Helper.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
 
   <ItemGroup>

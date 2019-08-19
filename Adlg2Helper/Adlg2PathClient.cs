@@ -57,6 +57,7 @@ namespace Adlg2Helper
         private readonly string _version = "2018-11-09";
         private readonly string _account;
         private readonly string _key;
+        private readonly string _sas;
         private readonly HttpClient _httpClient;
         private readonly string _clientId;
         private readonly string _clientSecret;
@@ -69,6 +70,13 @@ namespace Adlg2Helper
                 if (exception is AuthTokenInvalidException) AzureStorageAuthenticationHelper.ClearToken();
                 else Thread.Sleep(TimeSpan.FromSeconds(Math.Pow(2, retryCount)));
             });
+        internal Adlg2PathClient(string account, string _, string sas, HttpClient httpClient = null)
+        {
+            _account = account;
+            _sas = sas;
+            _httpClient = httpClient ?? Http.Client;
+            _authorizationMethod = AuthorizationMethod.SharedAccessSignature;
+        }
         internal Adlg2PathClient(string account, string key, HttpClient httpClient = null)
         {
             _account = account;
@@ -94,20 +102,19 @@ namespace Adlg2Helper
             };
             return _retryPolicy.Execute(() =>
             {
-                using (var httpRequestMessage = new HttpRequestMessage(HttpMethod.Put,
+                using (var request = new HttpRequestMessage(HttpMethod.Put,
                     $"https://{_account}.dfs.core.windows.net/{filesystem}/{path}?{string.Join("&", parameters)}"))
                 {
                     DateTime now = DateTime.UtcNow;
-                    httpRequestMessage.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
-                    httpRequestMessage.Headers.Add("x-ms-version", _version);
-                    if (!overWrite) httpRequestMessage.Headers.Add("If-None-Match", "*");
-                    httpRequestMessage.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey
-                        ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now,
-                            httpRequestMessage, ifNoneMatch: !overWrite ? "*" : null)
-                        : AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId,
-                            _clientSecret);
+                    request.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
+                    request.Headers.Add("x-ms-version", _version);
+                    if (!overWrite) request.Headers.Add("If-None-Match", "*");
+                    request.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, request, ifNoneMatch: !overWrite ? "*" : null)
+                        : _authorizationMethod == AuthorizationMethod.Oauth ? AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId, _clientSecret)
+                        : null;
+                    if (_authorizationMethod == AuthorizationMethod.SharedAccessSignature) request.RequestUri = new Uri(request.RequestUri + _sas.Replace('?','&'));
                     using (HttpResponseMessage response =
-                        _httpClient.SendAsync(httpRequestMessage).GetAwaiter().GetResult())
+                        _httpClient.SendAsync(request).GetAwaiter().GetResult())
                     {
                         if (!response.IsSuccessStatusCode)
                         {
@@ -138,10 +145,10 @@ namespace Adlg2Helper
                     DateTime now = DateTime.UtcNow;
                     request.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
                     request.Headers.Add("x-ms-version", _version);
-                    request.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey
-                        ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, request)
-                        : AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId,
-                            _clientSecret);
+                    request.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, request)
+                        : _authorizationMethod == AuthorizationMethod.Oauth ? AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId, _clientSecret)
+                        : null;
+                    if (_authorizationMethod == AuthorizationMethod.SharedAccessSignature) request.RequestUri = new Uri(request.RequestUri + _sas.Replace('?','&'));
                     using (var response = _httpClient.SendAsync(request).GetAwaiter().GetResult())
                     {
                         if (!response.IsSuccessStatusCode)
@@ -177,26 +184,25 @@ namespace Adlg2Helper
             bool success;
             (success, returnedLeaseId) = _retryPolicy.Execute(() =>
             {
-                using (var httpRequestMessage = new HttpRequestMessage(HttpMethod.Post,
+                using (var request = new HttpRequestMessage(HttpMethod.Post,
                     $"https://{_account}.dfs.core.windows.net/{filesystem}/{path}"))
                 {
                     DateTime now = DateTime.UtcNow;
-                    httpRequestMessage.Headers.Add("x-ms-lease-action", action);
+                    request.Headers.Add("x-ms-lease-action", action);
                     if (leaseDuration != null)
-                        httpRequestMessage.Headers.Add("x-ms-lease-duration", leaseDuration.ToString());
+                        request.Headers.Add("x-ms-lease-duration", leaseDuration.ToString());
                     if (leaseBreakPeriod != null)
-                        httpRequestMessage.Headers.Add("x-ms-lease-break-period", leaseBreakPeriod.ToString());
+                        request.Headers.Add("x-ms-lease-break-period", leaseBreakPeriod.ToString());
                     if (!string.IsNullOrEmpty(proposedLeaseId))
-                        httpRequestMessage.Headers.Add("x-ms-proposed-lease-id", proposedLeaseId);
-                    if (!string.IsNullOrEmpty(leaseId)) httpRequestMessage.Headers.Add("x-ms-lease-id", leaseId);
-                    httpRequestMessage.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
-                    httpRequestMessage.Headers.Add("x-ms-version", _version);
-                    httpRequestMessage.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey
-                        ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now,
-                            httpRequestMessage)
-                        : AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId,
-                            _clientSecret);
-                    using (var response = _httpClient.SendAsync(httpRequestMessage).GetAwaiter().GetResult())
+                        request.Headers.Add("x-ms-proposed-lease-id", proposedLeaseId);
+                    if (!string.IsNullOrEmpty(leaseId)) request.Headers.Add("x-ms-lease-id", leaseId);
+                    request.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
+                    request.Headers.Add("x-ms-version", _version);
+                    request.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, request)
+                        : _authorizationMethod == AuthorizationMethod.Oauth ? AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId, _clientSecret)
+                        : null;
+                    if (_authorizationMethod == AuthorizationMethod.SharedAccessSignature) request.RequestUri = new Uri(request.RequestUri + _sas.Replace('?','&'));
+                    using (var response = _httpClient.SendAsync(request).GetAwaiter().GetResult())
                     {
                         if (!response.IsSuccessStatusCode)
                         {
@@ -241,9 +247,10 @@ namespace Adlg2Helper
                 DateTime now = DateTime.UtcNow;
                 request.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
                 request.Headers.Add("x-ms-version", _version);
-                request.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey
-                    ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, request)
-                    : AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId, _clientSecret);
+                request.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, request)
+                    : _authorizationMethod == AuthorizationMethod.Oauth ? AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId, _clientSecret)
+                    : null;
+                if (_authorizationMethod == AuthorizationMethod.SharedAccessSignature) request.RequestUri = new Uri(request.RequestUri + _sas.Replace('?','&'));
                     using (var response = _httpClient.SendAsync(request).GetAwaiter().GetResult())
                 {
                     if (!response.IsSuccessStatusCode)
@@ -281,9 +288,10 @@ namespace Adlg2Helper
                     request.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
                     request.Headers.Add("x-ms-version", _version);
                     request.Headers.Add("Range", $"bytes={rangeStart}-{rangeStop}");
-                    request.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey
-                        ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, request, range: $"bytes={rangeStart}-{rangeStop}")
-                        : AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId, _clientSecret);
+                    request.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, request, range: $"bytes={rangeStart}-{rangeStop}")
+                        : _authorizationMethod == AuthorizationMethod.Oauth ? AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId, _clientSecret)
+                        : null;
+                    if (_authorizationMethod == AuthorizationMethod.SharedAccessSignature) request.RequestUri = new Uri(request.RequestUri + _sas.Replace('?','&'));
                     using (var response = _httpClient.SendAsync(request).GetAwaiter().GetResult())
                     {
                         if (!response.IsSuccessStatusCode)
@@ -313,9 +321,10 @@ namespace Adlg2Helper
                     request.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
                     request.Headers.Add("x-ms-version", _version);
                     request.Headers.Add("Range", $"bytes={rangeStart}-{rangeStop}");
-                    request.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey
-                        ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, request, range: $"bytes={rangeStart}-{rangeStop}")
-                        : AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId, _clientSecret);
+                    request.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, request, range: $"bytes={rangeStart}-{rangeStop}")
+                        : _authorizationMethod == AuthorizationMethod.Oauth ? AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId, _clientSecret)
+                        : null;
+                    if (_authorizationMethod == AuthorizationMethod.SharedAccessSignature) request.RequestUri = new Uri(request.RequestUri + _sas.Replace('?','&'));
                     using (var response = _httpClient.SendAsync(request).GetAwaiter().GetResult())
                     {
                         if (!response.IsSuccessStatusCode)
@@ -343,30 +352,28 @@ namespace Adlg2Helper
             if (close.HasValue) parameters.Add($"close={close}".ToLowerInvariant());
             return _retryPolicy.Execute(() =>
             {
-                using (var httpRequestMessage = new HttpRequestMessage(HttpMethod.Patch,
+                using (var request = new HttpRequestMessage(HttpMethod.Patch,
                     $"https://{_account}.dfs.core.windows.net/{filesystem}/{path}?{string.Join("&", parameters)}"))
                 {
-                    if (content != null) httpRequestMessage.Content = new ByteArrayContent(content);
+                    if (content != null) request.Content = new ByteArrayContent(content);
                     DateTime now = DateTime.UtcNow;
-                    httpRequestMessage.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
-                    httpRequestMessage.Headers.Add("x-ms-version", _version);
-                    httpRequestMessage.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey
-                        ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account,_key,now,httpRequestMessage,contentLength: content?.LongLength)
-                        : AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId, _clientSecret);
-                    using (HttpResponseMessage response =
-                        _httpClient.SendAsync(httpRequestMessage).GetAwaiter().GetResult())
+                    request.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
+                    request.Headers.Add("x-ms-version", _version);
+                    request.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, request, contentLength: content?.LongLength)
+                        : _authorizationMethod == AuthorizationMethod.Oauth ? AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId, _clientSecret)
+                        : null;
+                    if (_authorizationMethod == AuthorizationMethod.SharedAccessSignature) request.RequestUri = new Uri(request.RequestUri + _sas.Replace('?','&'));
+                    using (var response =
+                        _httpClient.SendAsync(request).GetAwaiter().GetResult())
                     {
-                        if (!response.IsSuccessStatusCode)
-                        {
-                            if (response.StatusCode == HttpStatusCode.InternalServerError && response.Content
-                                    .ReadAsStringAsync().GetAwaiter().GetResult()
-                                    .Contains("Operation could not be completed within the specified time."))
-                                throw new AdlOperationTimedOutException();
-                            if (response.StatusCode == HttpStatusCode.Unauthorized && _authorizationMethod == AuthorizationMethod.Oauth) throw new AuthTokenInvalidException();
-                            throw new Exception(response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
-                        }
+                        if (response.IsSuccessStatusCode) return true;
+                        if (response.StatusCode == HttpStatusCode.InternalServerError && response.Content
+                                .ReadAsStringAsync().GetAwaiter().GetResult()
+                                .Contains("Operation could not be completed within the specified time."))
+                            throw new AdlOperationTimedOutException();
+                        if (response.StatusCode == HttpStatusCode.Unauthorized && _authorizationMethod == AuthorizationMethod.Oauth) throw new AuthTokenInvalidException();
+                        throw new Exception(response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
 
-                        return true;
                     }
                 }
             });
@@ -379,19 +386,18 @@ namespace Adlg2Helper
             if (!string.IsNullOrEmpty(upn)) parameters.Add($"upn={upn}".ToLowerInvariant());
             return _retryPolicy.Execute(() =>
             {
-                using (var httpRequestMessage = new HttpRequestMessage(HttpMethod.Head,
+                using (var request = new HttpRequestMessage(HttpMethod.Head,
                     $"https://{_account}.dfs.core.windows.net/{filesystem}/{path}?{string.Join("&", parameters)}"))
                 {
                     DateTime now = DateTime.UtcNow;
-                    httpRequestMessage.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
-                    httpRequestMessage.Headers.Add("x-ms-version", _version);
-                    httpRequestMessage.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey
-                        ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now,
-                            httpRequestMessage)
-                        : AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId,
-                            _clientSecret);
-                    using (HttpResponseMessage response =
-                        _httpClient.SendAsync(httpRequestMessage).GetAwaiter().GetResult())
+                    request.Headers.Add("x-ms-date", now.ToString("R", CultureInfo.InvariantCulture));
+                    request.Headers.Add("x-ms-version", _version);
+                    request.Headers.Authorization = _authorizationMethod == AuthorizationMethod.SharedKey ? AzureStorageAuthenticationHelper.BuildSignedAuthorizationHeader(_account, _key, now, request)
+                        : _authorizationMethod == AuthorizationMethod.Oauth ? AzureStorageAuthenticationHelper.BuildBearerTokenHeader(_httpClient, _tenantId, _clientId, _clientSecret)
+                        : null;
+                    if (_authorizationMethod == AuthorizationMethod.SharedAccessSignature) request.RequestUri = new Uri(request.RequestUri + _sas.Replace('?','&'));
+                    using (var response =
+                        _httpClient.SendAsync(request).GetAwaiter().GetResult())
                     {
                         if (!response.IsSuccessStatusCode)
                         {
