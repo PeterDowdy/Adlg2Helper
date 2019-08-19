@@ -10,6 +10,12 @@ namespace Adlg2Helper
             if (string.IsNullOrEmpty(key)) throw new ArgumentException($"Shared key may not be null or empty. Shared key was {(key == null ? "null" : "empty")}.", nameof(key));
             return new Adlg2PathClient(account, key);
         }
+        internal static Adlg2PathClient BuildPathClientWithSharedAccessSignature(string account, string sas)
+        {
+            if (string.IsNullOrEmpty(account)) throw new ArgumentException($"Storage account name may not be null or empty. Storage account name was {(account == null ? "null" : "empty")}.", nameof(account));
+            if (string.IsNullOrEmpty(sas)) throw new ArgumentException($"Shared access signature may not be null or empty. Shared key was {(sas == null ? "null" : "empty")}.", nameof(sas));
+            return new Adlg2PathClient(account, null, sas);
+        }
         public static Adlg2PathClient BuildPathClient(string account, string tenantId, string clientId, string clientSecret)
         {
             if (string.IsNullOrEmpty(account)) throw new ArgumentException($"Storage account name may not be null or empty. Storage account name was {(account == null ? "null" : "empty")}.", nameof(account));
@@ -23,6 +29,12 @@ namespace Adlg2Helper
             if (string.IsNullOrEmpty(account)) throw new ArgumentException($"Storage account name may not be null or empty. Storage account name was {(account == null ? "null" : "empty")}.", nameof(account));
             if (string.IsNullOrEmpty(key)) throw new ArgumentException($"Shared key may not be null or empty. Shared key was {(key == null ? "null" : "empty")}.", nameof(key));
             return new Adlg2FilesystemClient(account, key);
+        }
+        internal static Adlg2FilesystemClient BuildFilesystemClientWithSharedAccessSignature(string account, string sas)
+        {
+            if (string.IsNullOrEmpty(account)) throw new ArgumentException($"Storage account name may not be null or empty. Storage account name was {(account == null ? "null" : "empty")}.", nameof(account));
+            if (string.IsNullOrEmpty(sas)) throw new ArgumentException($"Shared access signature may not be null or empty. Shared key was {(sas == null ? "null" : "empty")}.", nameof(sas));
+            return new Adlg2FilesystemClient(account, null, sas);
         }
         public static Adlg2FilesystemClient BuildFilesystemClient(string account, string tenantId, string clientId, string clientSecret)
         {

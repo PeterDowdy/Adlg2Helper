@@ -4,6 +4,12 @@
     <TargetFramework>netcoreapp2.2</TargetFramework>
 
     <IsPackable>false</IsPackable>
+
+    <SignAssembly>true</SignAssembly>
+
+    <AssemblyOriginatorKeyFile>Adlg2Helper.snk</AssemblyOriginatorKeyFile>
+
+    <DelaySign>false</DelaySign>
   </PropertyGroup>
 
   <ItemGroup>
