@@ -1,5 +1,5 @@
 # Deprecated - Azure SDK now supports Azure Data Lake Gen2
-I recommend that you use the NuGet package that Microsoft publishes: https://www.nuget.org/packages/Azure.Storage.Files.DataLake/12.2.2
+I recommend that you use the NuGet package that Microsoft publishes: https://www.nuget.org/packages/Azure.Storage.Files.DataLake
 
 # Azure DataLake Gen2 Helper
 ![Build status](https://dev.azure.com/peterdowdy/Adlg2Helper/_apis/build/status/Adlg2Helper%20Release)
